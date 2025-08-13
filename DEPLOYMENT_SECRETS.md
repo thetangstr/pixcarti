@@ -31,4 +31,4 @@ Make sure you also have:
 
 ## Triggering Deployment
 
-Once the `FIREBASE_SERVICE_ACCOUNT` secret is added, the deployment will automatically run when you push to the main branch.
+Once the `FIREBASE_SERVICE_ACCOUNT` secret is added, the deployment will automatically run when you push to the main branch.# Trigger deployment

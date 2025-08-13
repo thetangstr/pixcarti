@@ -88,8 +88,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Prisma Client
-        run: npm run prisma:generate
+      # Prisma no longer needed - using Firestore
 
       - name: Run linting (strict)
         run: npm run lint:check
@@ -104,7 +103,7 @@ jobs:
         run: |
           echo "NEXTAUTH_URL=http://localhost:3000" >> .env.local
           echo "NEXTAUTH_SECRET=production-test-secret" >> .env.local
-          echo "DATABASE_URL=file:./production-test.db" >> .env.local
+          echo "FIREBASE_PROJECT_ID=pixcarti" >> .env.local
 
       - name: Run full test suite
         run: npm run test
@@ -151,11 +150,12 @@ jobs:
           echo "APPLE_SECRET=${{ secrets.APPLE_SECRET_PROD }}" >> .env.local
           echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> .env.local
           echo "APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}" >> .env.local
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}" >> .env.local
+          echo "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env.local
+          echo "FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> .env.local
+          echo "FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}" >> .env.local
           echo "A1111_BASE_URL=${{ secrets.A1111_BASE_URL_PROD }}" >> .env.local
 
-      - name: Generate Prisma Client
-        run: npm run prisma:generate
+      # Prisma no longer needed - using Firestore
 
       - name: Build production application
         run: npm run build:production
@@ -164,12 +164,8 @@ jobs:
 
       - name: Verify build output
         run: |
-          if [ ! -d "out" ]; then
-            echo "❌ Build output directory 'out' not found"
-            exit 1
-          fi
-          if [ ! -f "out/index.html" ]; then
-            echo "❌ Main index.html file not found in build output"
+          if [ ! -d ".next" ]; then
+            echo "❌ Build output directory '.next' not found"
             exit 1
           fi
           echo "✅ Build verification successful"
@@ -178,7 +174,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: production-build
-          path: out/
+          path: .next/
           retention-days: 90
 
   deploy-production:
@@ -197,7 +193,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: production-build
-          path: out/
+          path: .next/
 
       - name: Deploy to Firebase Hosting Production
         id: deploy

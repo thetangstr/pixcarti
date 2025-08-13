@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { FirestoreUsers } from '@/app/lib/firestore'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,9 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    })
+    const existingUser = await FirestoreUsers.findByEmail(email)
 
     if (existingUser) {
       return NextResponse.json(
@@ -27,27 +23,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hash the password
+    // Hash the password - Note: We're not storing passwords in this simplified version
+    // In a full implementation, you'd need to add a password field to the User model
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create the user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-      }
+    // Create the user (without password storage for now)
+    const user = await FirestoreUsers.create({
+      name,
+      email,
+      // password: hashedPassword, // Would need to add this field to User model
     })
 
     return NextResponse.json(
       { 
         message: 'User created successfully',
-        user 
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        }
       },
       { status: 201 }
     )

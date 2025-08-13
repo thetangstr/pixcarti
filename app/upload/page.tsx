@@ -106,7 +106,11 @@ export default function UploadPage() {
         }
         
         setConvertedImages(prev => [newConvertedImage, ...prev])
-        setTriedStyles(prev => new Set([...prev, selectedStyle.id]))
+        setTriedStyles(prev => {
+          const newSet = new Set(prev)
+          newSet.add(selectedStyle.id)
+          return newSet
+        })
         
         // Don't clear the selection - allow user to try another style
       } else {

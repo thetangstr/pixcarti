@@ -59,8 +59,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Prisma Client
-        run: npm run prisma:generate
+      # Prisma no longer needed - using Firestore
 
       - name: Run linting
         run: npm run lint:check
@@ -75,7 +74,7 @@ jobs:
         run: |
           echo "NEXTAUTH_URL=http://localhost:3000" >> .env.local
           echo "NEXTAUTH_SECRET=test-secret-for-cd" >> .env.local
-          echo "DATABASE_URL=file:./test.db" >> .env.local
+          echo "FIREBASE_PROJECT_ID=pixcarti" >> .env.local
 
       - name: Run tests
         run: npm run test
@@ -113,11 +112,12 @@ jobs:
           echo "APPLE_SECRET=${{ secrets.APPLE_SECRET_BETA || secrets.APPLE_SECRET }}" >> .env.local
           echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> .env.local
           echo "APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}" >> .env.local
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL_BETA || secrets.DATABASE_URL }}" >> .env.local
+          echo "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env.local
+          echo "FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> .env.local
+          echo "FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}" >> .env.local
           echo "A1111_BASE_URL=${{ secrets.A1111_BASE_URL_BETA || secrets.A1111_BASE_URL }}" >> .env.local
 
-      - name: Generate Prisma Client
-        run: npm run prisma:generate
+      # Prisma no longer needed - using Firestore
 
       - name: Build application
         run: npm run build:beta

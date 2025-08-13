@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Removed static export to support API routes and authentication
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -10,7 +10,7 @@ const nextConfig = {
       },
     ],
   },
-  // For Firebase hosting
+  // Firebase hosting configuration
   trailingSlash: true,
 }
 

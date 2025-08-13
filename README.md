@@ -1,7 +1,7 @@
 # 🎨 Oil Painting Converter - Transform Photos into Art
 
-[![Deploy Beta](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-beta.yml/badge.svg)](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-beta.yml)
-[![Deploy Production](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-production.yml)
+[![Deploy Beta](https://github.com/thetangstr/pixcarti/actions/workflows/deploy-beta.yml/badge.svg)](https://github.com/thetangstr/pixcarti/actions/workflows/deploy-beta.yml)
+[![Deploy Production](https://github.com/thetangstr/pixcarti/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/thetangstr/pixcarti/actions/workflows/deploy-production.yml)
 
 Transform your photos into stunning oil painting masterpieces using advanced AI technology. This web application leverages Stable Diffusion through Automatic1111 to create beautiful, artistic renditions of your images.
 
@@ -54,8 +54,8 @@ Transform your photos into stunning oil painting masterpieces using advanced AI 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/oil-painting-app.git
-   cd oil-painting-app
+   git clone https://github.com/thetangstr/pixcarti.git
+   cd pixcarti
    ```
 
 2. **Install dependencies**

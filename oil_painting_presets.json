@@ -1,0 +1,228 @@
+{
+  "presets": {
+    "classical_renaissance": {
+      "name": "Classical Renaissance",
+      "description": "Emulates the refined techniques of Leonardo da Vinci and Raphael with sfumato effects, balanced composition, and idealized beauty",
+      "positive_prompt": "((oil painting on canvas:1.3)), ((Renaissance masterpiece:1.2)), sfumato technique, chiaroscuro lighting, ((fine glazing layers:1.1)), smooth blending, idealized beauty, ((anatomically perfect:1.2)), golden ratio composition, ((subtle gradations:1.1)), luminous skin tones, ((egg tempera underpainting:0.8)), refined brushwork, ((classical portraiture:1.2)), museum quality, old master painting",
+      "negative_prompt": "digital art, 3d render, photograph, anime, cartoon, ((rough brushstrokes)), ((impasto)), modern art, abstract, pixelated, low quality, blurry, ((harsh contrasts)), neon colors, oversaturated",
+      "cfg_scale": 7.5,
+      "denoising_strength": 0.45,
+      "steps": 30,
+      "sampler": "DPM++ 2M Karras",
+      "controlnet_settings": {
+        "recommended_model": "control_v11p_sd15_canny",
+        "weight": 0.65,
+        "guidance_start": 0.0,
+        "guidance_end": 0.85
+      },
+      "tips": [
+        "Use ControlNet Canny at 0.6-0.7 weight for facial features",
+        "Add 'pyramid composition' for group portraits",
+        "Lower denoising to 0.35-0.4 for better face preservation",
+        "Consider adding artist names like 'in the style of Leonardo da Vinci' at low weight (0.5-0.7)"
+      ]
+    },
+    "baroque_drama": {
+      "name": "Baroque Drama",
+      "description": "Captures the dramatic lighting and emotional intensity of Caravaggio and Rembrandt with strong tenebrism effects",
+      "positive_prompt": "((oil on canvas:1.4)), ((Baroque masterpiece:1.3)), ((dramatic chiaroscuro:1.4)), tenebrism, ((deep shadows and bright highlights:1.3)), ((Rembrandt lighting:1.2)), emotional intensity, ((rich impasto:1.1)), golden brown palette, ((theatrical composition:1.2)), ((dramatic gestures:1.1)), old master technique, ((glazing and scumbling:1.1)), museum piece",
+      "negative_prompt": "flat lighting, pastel colors, anime, digital art, 3d render, photograph, ((even illumination)), cartoon, low contrast, modern minimalist, watercolor, pencil drawing",
+      "cfg_scale": 8.0,
+      "denoising_strength": 0.5,
+      "steps": 35,
+      "sampler": "DPM++ 2M Karras",
+      "controlnet_settings": {
+        "recommended_model": "control_v11f1p_sd15_depth",
+        "weight": 0.55,
+        "guidance_start": 0.0,
+        "guidance_end": 0.9
+      },
+      "tips": [
+        "Use both Canny and Depth ControlNet for complex compositions",
+        "Emphasize single light source for authentic Baroque feel",
+        "Add 'candlelit' or 'window light' for indoor scenes",
+        "Increase contrast in post-processing for more drama"
+      ]
+    },
+    "impressionist_light": {
+      "name": "Impressionist Light",
+      "description": "Recreates the loose brushwork and light effects of Monet and Renoir with visible strokes and vibrant color",
+      "positive_prompt": "((impressionist oil painting:1.4)), ((loose brushstrokes:1.3)), ((dappled light:1.2)), plein air painting, ((broken color technique:1.2)), ((visible canvas texture:1.1)), ((vibrant palette:1.2)), ((capturing fleeting moment:1.1)), alla prima technique, ((sun-drenched scene:1.2)), ((optical color mixing:1.1)), French impressionism, ((feathery brushwork:1.2))",
+      "negative_prompt": "photorealistic, sharp details, ((smooth blending)), digital art, 3d render, anime, ((hard edges)), ((precise lines)), dark moody, gothic, hyperrealistic, airbrushed",
+      "cfg_scale": 6.5,
+      "denoising_strength": 0.55,
+      "steps": 25,
+      "sampler": "Euler a",
+      "controlnet_settings": {
+        "recommended_model": "control_v11p_sd15_canny",
+        "weight": 0.45,
+        "guidance_start": 0.0,
+        "guidance_end": 0.7
+      },
+      "tips": [
+        "Lower ControlNet weight (0.4-0.5) for looser interpretation",
+        "Add time of day keywords: 'morning light', 'golden hour'",
+        "Use higher denoising (0.55-0.65) for more painterly effect",
+        "Consider adding 'garden scene' or 'water reflections' for classic subjects"
+      ]
+    },
+    "post_impressionist_expression": {
+      "name": "Post-Impressionist Expression",
+      "description": "Channels the expressive brushwork of Van Gogh and structural approach of Cézanne with bold strokes and emotional color",
+      "positive_prompt": "((post-impressionist oil painting:1.4)), ((thick impasto technique:1.4)), ((swirling brushstrokes:1.3)), ((expressive color:1.3)), ((Van Gogh style energy:1.2)), ((bold paint application:1.3)), ((emotional brushwork:1.2)), ((vibrant complementary colors:1.2)), ((textured canvas:1.1)), ((rhythmic patterns:1.2)), heavy paint layers, ((dynamic movement:1.1))",
+      "negative_prompt": "photorealistic, smooth surface, digital art, 3d render, ((subtle colors)), ((thin paint)), watercolor, pencil sketch, anime, ((muted tones)), flat painting",
+      "cfg_scale": 7.0,
+      "denoising_strength": 0.6,
+      "steps": 30,
+      "sampler": "DPM++ SDE Karras",
+      "controlnet_settings": {
+        "recommended_model": "control_v11p_sd15_canny",
+        "weight": 0.5,
+        "guidance_start": 0.0,
+        "guidance_end": 0.75
+      },
+      "tips": [
+        "Use Regional Prompter to apply different stroke patterns to subject vs background",
+        "Increase denoising to 0.65-0.7 for more artistic interpretation",
+        "Add 'cypress trees', 'starry night', or 'wheat fields' for Van Gogh themes",
+        "Consider using two passes: first for structure, second for texture"
+      ]
+    },
+    "romantic_landscape": {
+      "name": "Romantic Landscape",
+      "description": "Evokes the sublime landscapes of Turner and Constable with atmospheric effects and dramatic natural scenes",
+      "positive_prompt": "((romantic landscape oil painting:1.3)), ((atmospheric perspective:1.3)), ((sublime nature:1.2)), ((Turner-esque luminosity:1.2)), ((dramatic sky:1.3)), ((glazing technique:1.1)), ((soft edges:1.1)), ((atmospheric effects:1.2)), misty distance, ((golden light:1.2)), ((cloud study:1.1)), ((impasto highlights:1.1)), British romanticism",
+      "negative_prompt": "digital art, 3d render, anime, photograph, ((hard edges)), ((oversaturated)), neon colors, urban scene, modern architecture, cartoon, low quality",
+      "cfg_scale": 7.5,
+      "denoising_strength": 0.5,
+      "steps": 30,
+      "sampler": "DPM++ 2M Karras",
+      "controlnet_settings": {
+        "recommended_model": "control_v11f1p_sd15_depth",
+        "weight": 0.6,
+        "guidance_start": 0.0,
+        "guidance_end": 0.8
+      },
+      "tips": [
+        "Use Depth ControlNet for maintaining landscape layers",
+        "Add weather keywords: 'stormy', 'misty morning', 'sunset glow'",
+        "Lower ControlNet weight for background elements (0.3-0.4)",
+        "Include 'sublime' and 'majestic' for emotional impact"
+      ]
+    },
+    "portrait_master": {
+      "name": "Portrait Master",
+      "description": "Emulates John Singer Sargent's confident brushwork and sophisticated portrait techniques with elegant simplicity",
+      "positive_prompt": "((masterful portrait oil painting:1.4)), ((Sargent-style brushwork:1.3)), ((confident paint strokes:1.3)), ((elegant simplicity:1.2)), ((bravura technique:1.2)), ((economy of brushwork:1.1)), ((luminous flesh tones:1.3)), ((sophisticated color harmony:1.2)), alla prima painting, ((gestural accuracy:1.2)), ((society portrait:1.1)), refined technique",
+      "negative_prompt": "overworked, muddy colors, digital art, 3d render, anime, photograph, ((stiff pose)), amateur, cartoon, ((oversaturated)), harsh lighting",
+      "cfg_scale": 7.0,
+      "denoising_strength": 0.4,
+      "steps": 28,
+      "sampler": "DPM++ 2M Karras",
+      "controlnet_settings": {
+        "recommended_model": "control_v11p_sd15_openpose",
+        "weight": 0.7,
+        "guidance_start": 0.0,
+        "guidance_end": 0.9
+      },
+      "tips": [
+        "Use OpenPose ControlNet for accurate pose preservation",
+        "Combine with Canny at low weight (0.3) for facial features",
+        "Keep denoising low (0.35-0.45) for maximum likeness",
+        "Add 'three-quarter view' or 'profile portrait' for classic poses"
+      ]
+    },
+    "modern_abstract": {
+      "name": "Modern Abstract Oil",
+      "description": "Interprets subjects through abstract expressionism while maintaining recognizable forms, inspired by Rothko and Pollock",
+      "positive_prompt": "((abstract expressionist oil painting:1.4)), ((bold gestural marks:1.3)), ((color field painting:1.2)), ((thick paint layers:1.3)), ((emotional abstraction:1.2)), ((spontaneous brushwork:1.2)), ((layered impasto:1.3)), ((dynamic composition:1.2)), mixed media effects, ((raw canvas showing:0.8)), ((drips and splatters:1.1)), contemporary art",
+      "negative_prompt": "photorealistic, precise details, ((traditional portrait)), digital art, 3d render, anime, ((tight brushwork)), smooth surface, classical composition",
+      "cfg_scale": 6.0,
+      "denoising_strength": 0.7,
+      "steps": 25,
+      "sampler": "Euler a",
+      "controlnet_settings": {
+        "recommended_model": "control_v11p_sd15_seg",
+        "weight": 0.35,
+        "guidance_start": 0.0,
+        "guidance_end": 0.6
+      },
+      "tips": [
+        "Use very low ControlNet weight (0.3-0.4) for abstract interpretation",
+        "Higher denoising (0.65-0.75) allows more artistic freedom",
+        "Use Regional Prompter to maintain subject while abstracting background",
+        "Consider multiple passes with different abstract styles"
+      ]
+    },
+    "photorealistic_oil": {
+      "name": "Photorealistic Oil",
+      "description": "Creates hyper-detailed oil paintings in the style of Chuck Close with meticulous attention to detail",
+      "positive_prompt": "((photorealistic oil painting:1.5)), ((hyperdetailed brushwork:1.4)), ((Chuck Close technique:1.2)), ((meticulous detail:1.4)), ((smooth blending:1.3)), ((invisible brushstrokes:1.2)), ((multiple glazing layers:1.2)), ((perfect color matching:1.3)), ((sharp focus throughout:1.2)), contemporary realism, ((technical mastery:1.3))",
+      "negative_prompt": "loose brushwork, impressionistic, abstract, ((visible brushstrokes)), digital artifacts, 3d render, anime, cartoon, ((painterly)), rough texture",
+      "cfg_scale": 8.5,
+      "denoising_strength": 0.35,
+      "steps": 40,
+      "sampler": "DPM++ 2M Karras",
+      "controlnet_settings": {
+        "recommended_model": "control_v11p_sd15_canny",
+        "weight": 0.8,
+        "guidance_start": 0.0,
+        "guidance_end": 1.0
+      },
+      "tips": [
+        "Use high ControlNet weight (0.75-0.85) for maximum accuracy",
+        "Keep denoising very low (0.3-0.4) to preserve details",
+        "Consider using tile ControlNet for ultra-high resolution",
+        "Use Ultimate SD Upscale for maintaining detail at larger sizes"
+      ]
+    }
+  },
+  "global_settings": {
+    "recommended_models": [
+      "deliberate_v2",
+      "dreamshaper_8",
+      "realisticVision_v5"
+    ],
+    "universal_negative": "low quality, worst quality, jpeg artifacts, blurry, out of focus, cropped, duplicate, deformed, disfigured",
+    "img2img_tips": [
+      "Always start with lower denoising and increase gradually",
+      "Use multiple ControlNet units for complex subjects",
+      "Save seeds that work well for batch variations",
+      "Consider inpainting for specific areas that need refinement"
+    ],
+    "face_preservation": {
+      "description": "Critical settings for maintaining facial recognition",
+      "controlnet_face_weight": 0.7,
+      "denoising_max": 0.5,
+      "recommended_extension": "ADetailer for automatic face enhancement",
+      "backup_method": "Use inpainting at 0.3 denoising for faces only"
+    },
+    "pet_preservation": {
+      "description": "Settings optimized for animal subjects",
+      "controlnet_weight": 0.65,
+      "additional_prompts": "((accurate animal anatomy:1.2)), ((pet portrait:1.1))",
+      "tips": "Use OpenPose for body structure, Canny for fur texture"
+    }
+  },
+  "workflow_recommendations": {
+    "beginner": {
+      "start_with": "classical_renaissance or portrait_master",
+      "initial_denoising": 0.35,
+      "controlnet_weight": 0.6,
+      "steps": 25
+    },
+    "intermediate": {
+      "explore": "impressionist_light, baroque_drama",
+      "denoising_range": "0.4-0.55",
+      "experiment_with": "Multiple ControlNet units"
+    },
+    "advanced": {
+      "try": "modern_abstract, post_impressionist_expression",
+      "techniques": [
+        "Regional Prompter for differential styling",
+        "Multi-pass processing",
+        "Custom LoRA training for specific styles"
+      ]
+    }
+  }
+}

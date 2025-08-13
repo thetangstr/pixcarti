@@ -1,0 +1,283 @@
+name: Auto-merge Dependabot PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get PR details
+        id: pr-details
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            
+            const title = pr.title.toLowerCase();
+            const body = pr.body || '';
+            
+            // Determine update type
+            let updateType = 'unknown';
+            let severity = 'unknown';
+            
+            if (title.includes('security')) {
+              updateType = 'security';
+              severity = 'critical';
+            } else if (title.includes('bump') && title.includes('patch')) {
+              updateType = 'patch';
+              severity = 'low';
+            } else if (title.includes('bump') && title.includes('minor')) {
+              updateType = 'minor';
+              severity = 'medium';
+            } else if (title.includes('bump') && title.includes('major')) {
+              updateType = 'major';
+              severity = 'high';
+            }
+            
+            // Check if it's a group update
+            const isGroupUpdate = title.includes('group') || body.includes('group');
+            
+            core.setOutput('update-type', updateType);
+            core.setOutput('severity', severity);
+            core.setOutput('is-group-update', isGroupUpdate);
+            core.setOutput('pr-title', pr.title);
+            
+            console.log(`Update type: ${updateType}, Severity: ${severity}, Group: ${isGroupUpdate}`);
+
+      - name: Wait for checks to complete
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+            const pollInterval = 30 * 1000; // 30 seconds
+            const startTime = Date.now();
+            
+            while (Date.now() - startTime < maxWaitTime) {
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: context.payload.pull_request.head.sha,
+              });
+              
+              const relevantChecks = checks.check_runs.filter(check => 
+                !check.name.includes('auto-merge') && 
+                check.status === 'completed'
+              );
+              
+              const allCompleted = relevantChecks.length > 0 && 
+                relevantChecks.every(check => check.status === 'completed');
+              
+              if (allCompleted) {
+                const allPassed = relevantChecks.every(check => 
+                  check.conclusion === 'success'
+                );
+                
+                if (allPassed) {
+                  console.log('All checks passed');
+                  return;
+                } else {
+                  const failedChecks = relevantChecks.filter(check => 
+                    check.conclusion !== 'success'
+                  );
+                  console.log('Some checks failed:', failedChecks.map(c => c.name));
+                  core.setFailed('Some required checks failed');
+                  return;
+                }
+              }
+              
+              console.log('Waiting for checks to complete...');
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+            }
+            
+            core.setFailed('Timeout waiting for checks to complete');
+
+      - name: Determine merge strategy
+        id: merge-strategy
+        run: |
+          UPDATE_TYPE="${{ steps.pr-details.outputs.update-type }}"
+          SEVERITY="${{ steps.pr-details.outputs.severity }}"
+          IS_GROUP="${{ steps.pr-details.outputs.is-group-update }}"
+          
+          SHOULD_MERGE="false"
+          MERGE_METHOD="squash"
+          
+          case "$UPDATE_TYPE" in
+            "security")
+              echo "Security update - auto-merging"
+              SHOULD_MERGE="true"
+              ;;
+            "patch")
+              echo "Patch update - auto-merging"
+              SHOULD_MERGE="true"
+              ;;
+            "minor")
+              if [ "$IS_GROUP" = "true" ]; then
+                echo "Minor group update - auto-merging"
+                SHOULD_MERGE="true"
+              else
+                echo "Minor update - auto-merging"
+                SHOULD_MERGE="true"
+              fi
+              ;;
+            "major")
+              echo "Major update - requires manual review"
+              SHOULD_MERGE="false"
+              ;;
+            *)
+              echo "Unknown update type - requires manual review"
+              SHOULD_MERGE="false"
+              ;;
+          esac
+          
+          echo "should-merge=$SHOULD_MERGE" >> $GITHUB_OUTPUT
+          echo "merge-method=$MERGE_METHOD" >> $GITHUB_OUTPUT
+
+      - name: Auto-approve PR
+        if: steps.merge-strategy.outputs.should-merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              event: 'APPROVE',
+              body: '✅ Auto-approved by deployment automation\n\nThis Dependabot PR has been automatically approved because:\n- All checks are passing\n- Update type is safe for auto-merge\n- No breaking changes detected'
+            });
+
+      - name: Enable auto-merge
+        if: steps.merge-strategy.outputs.should-merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.enableAutoMerge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: '${{ steps.merge-strategy.outputs.merge-method }}'
+            });
+            
+            console.log('Auto-merge enabled');
+
+      - name: Add labels
+        if: steps.merge-strategy.outputs.should-merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = ['auto-merge', 'dependencies'];
+            
+            // Add severity label
+            const severity = '${{ steps.pr-details.outputs.severity }}';
+            if (severity !== 'unknown') {
+              labels.push(`severity-${severity}`);
+            }
+            
+            // Add update type label
+            const updateType = '${{ steps.pr-details.outputs.update-type }}';
+            if (updateType !== 'unknown') {
+              labels.push(`update-${updateType}`);
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: labels
+            });
+
+      - name: Comment on manual review required
+        if: steps.merge-strategy.outputs.should-merge == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const updateType = '${{ steps.pr-details.outputs.update-type }}';
+            const prTitle = '${{ steps.pr-details.outputs.pr-title }}';
+            
+            let reason = '';
+            if (updateType === 'major') {
+              reason = 'This is a major version update that may contain breaking changes.';
+            } else {
+              reason = 'The update type could not be determined automatically.';
+            }
+            
+            const comment = `🤖 **Auto-merge Analysis**
+            
+            This Dependabot PR requires manual review.
+            
+            **Reason:** ${reason}
+            
+            **Update Details:**
+            - Type: ${updateType}
+            - Title: ${prTitle}
+            
+            **Manual Review Checklist:**
+            - [ ] Review changelog for breaking changes
+            - [ ] Verify compatibility with current codebase
+            - [ ] Run tests locally if needed
+            - [ ] Check for any required configuration updates
+            
+            Once reviewed and approved, this PR can be merged manually.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+      - name: Add manual review labels
+        if: steps.merge-strategy.outputs.should-merge == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = ['manual-review-required', 'dependencies'];
+            
+            const updateType = '${{ steps.pr-details.outputs.update-type }}';
+            if (updateType === 'major') {
+              labels.push('breaking-change-possible');
+            }
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: labels
+            });
+
+  summary:
+    name: Auto-merge Summary
+    runs-on: ubuntu-latest
+    needs: auto-merge
+    if: always() && github.actor == 'dependabot[bot]'
+    steps:
+      - name: Log summary
+        run: |
+          echo "🤖 Dependabot Auto-merge Summary"
+          echo "================================"
+          echo "PR: ${{ github.event.pull_request.title }}"
+          echo "Status: ${{ needs.auto-merge.result }}"
+          echo ""
+          
+          if [ "${{ needs.auto-merge.result }}" = "success" ]; then
+            echo "✅ Auto-merge process completed successfully"
+          else
+            echo "⚠️  Auto-merge process completed with issues - check logs"
+          fi

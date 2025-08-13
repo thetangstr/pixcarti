@@ -1,0 +1,476 @@
+name: Reusable Deployment Steps
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '18'
+        type: string
+      environment:
+        description: 'Deployment environment'
+        required: false
+        default: 'production'
+        type: string
+      skip-tests:
+        description: 'Skip test execution'
+        required: false
+        default: false
+        type: boolean
+      run-security-scan:
+        description: 'Run security audit'
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      FIREBASE_TOKEN:
+        description: 'Firebase deployment token'
+        required: true
+      FIREBASE_PROJECT_ID:
+        description: 'Firebase project ID'
+        required: true
+    outputs:
+      deployment-url:
+        description: 'URL of the deployed application'
+        value: ${{ jobs.deploy.outputs.url }}
+      deployment-status:
+        description: 'Status of the deployment'
+        value: ${{ jobs.deploy.outputs.status }}
+
+env:
+  NODE_VERSION: ${{ inputs.node-version }}
+  DEPLOYMENT_ENVIRONMENT: ${{ inputs.environment }}
+
+jobs:
+  setup-and-validate:
+    name: Setup and Validate
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      validation-status: ${{ steps.validate.outputs.status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          # Create cache key based on package-lock.json and Node version
+          CACHE_KEY="node-${{ env.NODE_VERSION }}-$(sha256sum package-lock.json | cut -d' ' -f1)"
+          echo "key=$CACHE_KEY" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            node-${{ env.NODE_VERSION }}-
+
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing dependencies..."
+          npm ci --prefer-offline --no-audit
+
+      - name: Validate environment
+        id: validate
+        run: |
+          echo "🔍 Validating deployment environment..."
+          
+          # Check required files exist
+          REQUIRED_FILES="package.json next.config.js firebase.json"
+          for file in $REQUIRED_FILES; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Required file missing: $file"
+              echo "status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          done
+          
+          # Validate Firebase configuration
+          if ! jq '.hosting' firebase.json > /dev/null; then
+            echo "::error::Invalid firebase.json configuration"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "✅ Environment validation passed"
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: setup-and-validate
+    if: inputs.run-security-scan == true
+    outputs:
+      audit-status: ${{ steps.audit.outputs.status }}
+      vulnerabilities: ${{ steps.audit.outputs.vulnerabilities }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Restore dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ needs.setup-and-validate.outputs.cache-key }}
+
+      - name: Install dependencies if cache miss
+        run: |
+          if [ ! -d "node_modules" ]; then
+            npm ci --prefer-offline --no-audit
+          fi
+
+      - name: Run security audit
+        id: audit
+        run: |
+          echo "🔒 Running security audit..."
+          
+          # Run audit and capture results
+          if npm audit --audit-level=moderate --json > audit-result.json; then
+            CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' audit-result.json)
+            HIGH=$(jq '.metadata.vulnerabilities.high // 0' audit-result.json)
+            MODERATE=$(jq '.metadata.vulnerabilities.moderate // 0' audit-result.json)
+            TOTAL=$((CRITICAL + HIGH + MODERATE))
+            
+            echo "vulnerabilities=$TOTAL" >> $GITHUB_OUTPUT
+            
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+              echo "::error::Critical or high vulnerabilities found"
+              echo "status=failed" >> $GITHUB_OUTPUT
+              jq -r '.vulnerabilities | to_entries[] | select(.value.severity == "critical" or .value.severity == "high") | "\(.key): \(.value.severity) - \(.value.title)"' audit-result.json
+              exit 1
+            elif [ "$MODERATE" -gt 0 ]; then
+              echo "::warning::Moderate vulnerabilities found"
+              echo "status=warning" >> $GITHUB_OUTPUT
+            else
+              echo "status=passed" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "::error::Security audit failed to run"
+            echo "status=error" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-results
+          path: audit-result.json
+          retention-days: 30
+
+  quality-checks:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    needs: setup-and-validate
+    outputs:
+      quality-status: ${{ steps.quality.outputs.status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Restore dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ needs.setup-and-validate.outputs.cache-key }}
+
+      - name: Install dependencies if cache miss
+        run: |
+          if [ ! -d "node_modules" ]; then
+            npm ci --prefer-offline --no-audit
+          fi
+
+      - name: Run code quality checks
+        id: quality
+        run: |
+          echo "🧹 Running code quality checks..."
+          
+          # TypeScript check
+          echo "Checking TypeScript..."
+          if ! npm run type-check > type-check.log 2>&1; then
+            echo "::error::TypeScript errors found"
+            cat type-check.log
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Linting
+          echo "Running ESLint..."
+          if ! npm run lint:check > lint.log 2>&1; then
+            echo "::error::ESLint errors found"
+            cat lint.log
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "✅ Code quality checks passed"
+
+      - name: Upload quality check logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-check-logs
+          path: |
+            type-check.log
+            lint.log
+          retention-days: 7
+
+  run-tests:
+    name: Run Test Suite
+    runs-on: ubuntu-latest
+    needs: setup-and-validate
+    if: inputs.skip-tests == false
+    outputs:
+      test-status: ${{ steps.test.outputs.status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Restore dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ needs.setup-and-validate.outputs.cache-key }}
+
+      - name: Install dependencies if cache miss
+        run: |
+          if [ ! -d "node_modules" ]; then
+            npm ci --prefer-offline --no-audit
+          fi
+
+      - name: Install Playwright browsers
+        run: |
+          echo "🎭 Installing Playwright browsers..."
+          npx playwright install --with-deps
+
+      - name: Run tests
+        id: test
+        run: |
+          echo "🧪 Running test suite..."
+          
+          if npm run ci:test; then
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "✅ All tests passed"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Some tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [setup-and-validate, security-audit, quality-checks, run-tests]
+    if: always() && needs.setup-and-validate.outputs.validation-status == 'passed'
+    outputs:
+      build-status: ${{ steps.build.outputs.status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Restore dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ needs.setup-and-validate.outputs.cache-key }}
+
+      - name: Install dependencies if cache miss
+        run: |
+          if [ ! -d "node_modules" ]; then
+            npm ci --prefer-offline --no-audit
+          fi
+
+      - name: Build application
+        id: build
+        run: |
+          echo "🔨 Building application for ${{ env.DEPLOYMENT_ENVIRONMENT }}..."
+          
+          # Clean previous builds
+          npm run clean
+          
+          # Build based on environment
+          case "${{ env.DEPLOYMENT_ENVIRONMENT }}" in
+            "production")
+              npm run build:production
+              ;;
+            "beta")
+              npm run build:beta
+              ;;
+            *)
+              npm run build
+              ;;
+          esac
+          
+          # Verify build success
+          if [ -f ".next/BUILD_ID" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "✅ Build completed successfully"
+            
+            # Log build size
+            BUILD_SIZE=$(du -sh .next | cut -f1)
+            echo "Build size: $BUILD_SIZE"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Build failed - missing BUILD_ID"
+            exit 1
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            .next/
+            out/
+            public/
+            package.json
+            next.config.js
+            firebase.json
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Firebase
+    runs-on: ubuntu-latest
+    needs: [setup-and-validate, build]
+    if: needs.build.outputs.build-status == 'success'
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+      status: ${{ steps.deploy.outputs.status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Firebase CLI
+        run: |
+          echo "🔥 Installing Firebase CLI..."
+          npm install -g firebase-tools
+
+      - name: Deploy to Firebase
+        id: deploy
+        run: |
+          echo "🚀 Deploying to Firebase (${{ env.DEPLOYMENT_ENVIRONMENT }})..."
+          
+          case "${{ env.DEPLOYMENT_ENVIRONMENT }}" in
+            "production")
+              firebase deploy --only hosting:production --project ${{ secrets.FIREBASE_PROJECT_ID }} --token ${{ secrets.FIREBASE_TOKEN }}
+              echo "url=https://${{ secrets.FIREBASE_PROJECT_ID }}.web.app" >> $GITHUB_OUTPUT
+              ;;
+            "beta")
+              firebase deploy --only hosting:beta --project ${{ secrets.FIREBASE_PROJECT_ID }} --token ${{ secrets.FIREBASE_TOKEN }}
+              echo "url=https://beta---${{ secrets.FIREBASE_PROJECT_ID }}.web.app" >> $GITHUB_OUTPUT
+              ;;
+            "preview")
+              CHANNEL_ID="preview-${{ github.run_number }}"
+              firebase hosting:channel:deploy $CHANNEL_ID --project ${{ secrets.FIREBASE_PROJECT_ID }} --token ${{ secrets.FIREBASE_TOKEN }} --expires 7d
+              echo "url=https://${{ secrets.FIREBASE_PROJECT_ID }}--$CHANNEL_ID.web.app" >> $GITHUB_OUTPUT
+              ;;
+          esac
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ Deployment completed successfully"
+
+  post-deployment:
+    name: Post-deployment Verification
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: needs.deploy.outputs.status == 'success'
+    steps:
+      - name: Health check
+        run: |
+          echo "🏥 Running post-deployment health check..."
+          
+          DEPLOYMENT_URL="${{ needs.deploy.outputs.url }}"
+          
+          # Wait for deployment to propagate
+          echo "Waiting for deployment to be ready..."
+          sleep 30
+          
+          # Basic connectivity check
+          if curl -f -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL" | grep -q "200"; then
+            echo "✅ Deployment is accessible"
+          else
+            echo "❌ Deployment health check failed"
+            exit 1
+          fi
+
+      - name: Performance verification
+        run: |
+          echo "⚡ Verifying performance..."
+          
+          DEPLOYMENT_URL="${{ needs.deploy.outputs.url }}"
+          
+          # Measure response time
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "$DEPLOYMENT_URL")
+          echo "Response time: ${RESPONSE_TIME}s"
+          
+          # Check if response time is acceptable
+          if (( $(echo "$RESPONSE_TIME > 10" | bc -l) )); then
+            echo "⚠️  Slow response time detected: ${RESPONSE_TIME}s"
+          else
+            echo "✅ Response time is acceptable: ${RESPONSE_TIME}s"
+          fi

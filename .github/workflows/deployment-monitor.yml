@@ -1,0 +1,376 @@
+name: Deployment Monitor
+
+on:
+  # Monitor when main branch is updated
+  push:
+    branches: [main]
+  # Monitor deployment workflows
+  workflow_run:
+    workflows: ["Deploy to Firebase", "Deploy to Production", "Deploy to Beta"]
+    types:
+      - requested
+      - in_progress
+      - completed
+  # Manual trigger for testing
+  workflow_dispatch:
+  # Scheduled health checks
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours
+
+env:
+  NODE_VERSION: '18'
+  MONITORING_ENABLED: true
+
+jobs:
+  pre-deployment-check:
+    name: Pre-Deployment Health Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    outputs:
+      health_status: ${{ steps.health-check.outputs.status }}
+      issues_found: ${{ steps.health-check.outputs.issues }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Pre-deployment health check
+        id: health-check
+        run: |
+          echo "Running comprehensive pre-deployment checks..."
+          
+          ISSUES_FOUND=""
+          HEALTH_STATUS="healthy"
+          
+          # Check for security vulnerabilities
+          echo "🔒 Checking for security vulnerabilities..."
+          if npm audit --audit-level=moderate --json > audit.json; then
+            VULNERABILITIES=$(jq '.metadata.vulnerabilities.moderate + .metadata.vulnerabilities.high + .metadata.vulnerabilities.critical' audit.json)
+            if [ "$VULNERABILITIES" -gt 0 ]; then
+              echo "⚠️  Found $VULNERABILITIES security vulnerabilities"
+              ISSUES_FOUND="security,$ISSUES_FOUND"
+              HEALTH_STATUS="degraded"
+            fi
+          fi
+          
+          # Check for TypeScript errors
+          echo "🏷️  Checking TypeScript..."
+          if ! npm run type-check > type-check.log 2>&1; then
+            echo "❌ TypeScript errors found"
+            ISSUES_FOUND="typescript,$ISSUES_FOUND"
+            HEALTH_STATUS="unhealthy"
+          fi
+          
+          # Check linting
+          echo "🧹 Checking code quality..."
+          if ! npm run lint:check > lint.log 2>&1; then
+            echo "⚠️  Linting issues found"
+            ISSUES_FOUND="linting,$ISSUES_FOUND"
+            if [ "$HEALTH_STATUS" = "healthy" ]; then
+              HEALTH_STATUS="degraded"
+            fi
+          fi
+          
+          # Check build
+          echo "🔨 Testing build..."
+          if ! npm run build > build.log 2>&1; then
+            echo "❌ Build failed"
+            ISSUES_FOUND="build,$ISSUES_FOUND"
+            HEALTH_STATUS="unhealthy"
+          fi
+          
+          # Check tests
+          echo "🧪 Running tests..."
+          if ! npm run test > test.log 2>&1; then
+            echo "❌ Tests failed"
+            ISSUES_FOUND="tests,$ISSUES_FOUND"
+            HEALTH_STATUS="unhealthy"
+          fi
+          
+          # Check for environment variable requirements
+          echo "🌍 Checking environment variables..."
+          REQUIRED_VARS="NEXTAUTH_SECRET NEXTAUTH_URL FIREBASE_PROJECT_ID"
+          for var in $REQUIRED_VARS; do
+            if [ -z "${!var}" ]; then
+              echo "⚠️  Required environment variable $var is not set"
+              ISSUES_FOUND="env-vars,$ISSUES_FOUND"
+              if [ "$HEALTH_STATUS" = "healthy" ]; then
+                HEALTH_STATUS="degraded"
+              fi
+            fi
+          done
+          
+          # Check for security patterns in code
+          echo "🔍 Scanning for potential security issues in code..."
+          if grep -rE '(api[_-]?key|secret|password|token).*[=:]\s*["\'][^"\']{8,}' --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" . | grep -v node_modules | grep -v ".git" | grep -v ".env.example"; then
+            echo "⚠️  Potential hardcoded secrets found in source code"
+            ISSUES_FOUND="hardcoded-secrets,$ISSUES_FOUND"
+            HEALTH_STATUS="unhealthy"
+          fi
+          
+          # Summary
+          echo "status=$HEALTH_STATUS" >> $GITHUB_OUTPUT
+          echo "issues=$ISSUES_FOUND" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "📊 Health Check Summary:"
+          echo "Status: $HEALTH_STATUS"
+          if [ -n "$ISSUES_FOUND" ]; then
+            echo "Issues: $ISSUES_FOUND"
+          else
+            echo "No issues found"
+          fi
+
+      - name: Upload logs artifacts
+        if: steps.health-check.outputs.status != 'healthy'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-deployment-logs
+          path: |
+            *.log
+            audit.json
+          retention-days: 7
+
+  monitor-deployment-status:
+    name: Monitor Deployment Status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Analyze deployment status
+        id: deployment-status
+        run: |
+          echo "Monitoring deployment: ${{ github.event.workflow_run.name }}"
+          echo "Status: ${{ github.event.workflow_run.conclusion }}"
+          echo "Event: ${{ github.event.action }}"
+          
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          WORKFLOW_STATUS="${{ github.event.workflow_run.conclusion }}"
+          WORKFLOW_EVENT="${{ github.event.action }}"
+          
+          # Log deployment attempt
+          echo "$(date): $WORKFLOW_NAME - $WORKFLOW_EVENT - $WORKFLOW_STATUS" >> deployment_log.txt
+          
+          # Set outputs for other jobs
+          echo "workflow_name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
+          echo "workflow_status=$WORKFLOW_STATUS" >> $GITHUB_OUTPUT
+          echo "workflow_event=$WORKFLOW_EVENT" >> $GITHUB_OUTPUT
+
+      - name: Capture error logs on failure
+        if: github.event.workflow_run.conclusion == 'failure'
+        run: |
+          echo "🚨 Deployment failed: ${{ steps.deployment-status.outputs.workflow_name }}"
+          
+          # Create error report
+          cat > error_report.md << EOF
+          # Deployment Failure Report
+          
+          **Workflow:** ${{ steps.deployment-status.outputs.workflow_name }}
+          **Time:** $(date -u)
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+          
+          ## Failure Details
+          - **Status:** ${{ steps.deployment-status.outputs.workflow_status }}
+          - **Run ID:** ${{ github.event.workflow_run.id }}
+          - **Attempt:** ${{ github.event.workflow_run.run_attempt }}
+          
+          ## Common Issues to Check
+          - [ ] Environment variables configured
+          - [ ] Dependencies up to date
+          - [ ] Build artifacts clean
+          - [ ] Security vulnerabilities resolved
+          - [ ] TypeScript errors fixed
+          
+          ## Next Steps
+          1. Review the workflow logs
+          2. Check if auto-fix workflow was triggered
+          3. Verify environment configuration
+          4. Test locally before re-deploying
+          EOF
+          
+          echo "Error report created at error_report.md"
+
+      - name: Upload error artifacts
+        if: github.event.workflow_run.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-failure-report-${{ github.event.workflow_run.id }}
+          path: |
+            error_report.md
+            deployment_log.txt
+          retention-days: 30
+
+  trigger-auto-fix:
+    name: Trigger Auto-Fix Workflow
+    runs-on: ubuntu-latest
+    needs: monitor-deployment-status
+    if: github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: Determine fix type needed
+        id: fix-type
+        run: |
+          # Analyze failure type based on workflow name and common patterns
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          FIX_TYPE="all"
+          
+          case "$WORKFLOW_NAME" in
+            *"security"*|*"audit"*)
+              FIX_TYPE="security"
+              ;;
+            *"build"*|*"compile"*)
+              FIX_TYPE="build"
+              ;;
+            *"test"*)
+              FIX_TYPE="types"
+              ;;
+          esac
+          
+          echo "fix_type=$FIX_TYPE" >> $GITHUB_OUTPUT
+          echo "Will trigger auto-fix workflow with type: $FIX_TYPE"
+
+      - name: Trigger auto-fix workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('Triggering auto-fix workflow...');
+            
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'auto-fix-deployment.yml',
+              ref: 'main',
+              inputs: {
+                fix_type: '${{ steps.fix-type.outputs.fix_type }}'
+              }
+            });
+            
+            console.log('Auto-fix workflow triggered successfully');
+
+  health-check-scheduled:
+    name: Scheduled Health Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run scheduled health check
+        run: |
+          echo "🔄 Running scheduled health check..."
+          
+          # Check for new security vulnerabilities
+          npm audit --audit-level=moderate
+          
+          # Check for outdated dependencies
+          npm outdated || true
+          
+          # Quick build check
+          npm run build
+          
+          # Quick test run
+          npm run test
+          
+          echo "✅ Scheduled health check completed"
+
+  deployment-metrics:
+    name: Collect Deployment Metrics
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: Collect metrics
+        run: |
+          echo "📊 Collecting deployment metrics..."
+          
+          # Create metrics file
+          cat > metrics.json << EOF
+          {
+            "timestamp": "$(date -u --iso-8601=seconds)",
+            "workflow_name": "${{ github.event.workflow_run.name }}",
+            "conclusion": "${{ github.event.workflow_run.conclusion }}",
+            "run_number": ${{ github.event.workflow_run.run_number }},
+            "run_attempt": ${{ github.event.workflow_run.run_attempt }},
+            "repository": "${{ github.repository }}",
+            "branch": "${{ github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "actor": "${{ github.actor }}"
+          }
+          EOF
+          
+          echo "Metrics collected:"
+          cat metrics.json
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-metrics-${{ github.event.workflow_run.id }}
+          path: metrics.json
+          retention-days: 90
+
+  notify-deployment-status:
+    name: Send Deployment Notifications
+    runs-on: ubuntu-latest
+    needs: [monitor-deployment-status, deployment-metrics]
+    if: always() && github.event_name == 'workflow_run'
+    steps:
+      - name: Prepare notification message
+        id: message
+        run: |
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          WORKFLOW_STATUS="${{ github.event.workflow_run.conclusion }}"
+          
+          case "$WORKFLOW_STATUS" in
+            "success")
+              EMOJI="✅"
+              MESSAGE="Deployment successful"
+              ;;
+            "failure")
+              EMOJI="❌"
+              MESSAGE="Deployment failed - auto-fix triggered"
+              ;;
+            "cancelled")
+              EMOJI="⏹️"
+              MESSAGE="Deployment cancelled"
+              ;;
+            *)
+              EMOJI="ℹ️"
+              MESSAGE="Deployment status: $WORKFLOW_STATUS"
+              ;;
+          esac
+          
+          FULL_MESSAGE="$EMOJI $MESSAGE\n\nWorkflow: $WORKFLOW_NAME\nCommit: ${{ github.sha }}\nBranch: ${{ github.ref_name }}"
+          
+          echo "message=$FULL_MESSAGE" >> $GITHUB_OUTPUT
+
+      - name: Log notification
+        run: |
+          echo "📬 Deployment notification:"
+          echo -e "${{ steps.message.outputs.message }}"
+          
+          # In a real environment, you would send this to:
+          # - Slack webhook
+          # - Discord webhook  
+          # - Email
+          # - PagerDuty (for critical failures)
+          # - Team dashboard
+          
+          echo "Notification logged (configure webhooks for real notifications)"

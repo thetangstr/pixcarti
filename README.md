@@ -1,203 +1,222 @@
-# Oil Painting Converter
+# 🎨 Oil Painting Converter - Transform Photos into Art
 
-A beautiful Next.js application that transforms your photos into stunning oil painting masterpieces using AI technology via Automatic1111 (A1111).
+[![Deploy Beta](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-beta.yml/badge.svg)](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-beta.yml)
+[![Deploy Production](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/YOUR_USERNAME/oil-painting-app/actions/workflows/deploy-production.yml)
 
-## Features
+Transform your photos into stunning oil painting masterpieces using advanced AI technology. This web application leverages Stable Diffusion through Automatic1111 to create beautiful, artistic renditions of your images.
 
-- 🎨 Convert photos to oil paintings using AI
-- 🖼️ Beautiful, modern UI with Tailwind CSS
-- 📱 Fully responsive design
-- 🚀 Fast image processing
-- 🖥️ Gallery to view converted images
-- 💾 Download converted images
-- 🔄 Real-time conversion status
+## ✨ Features
 
-## Tech Stack
+- **🎨 8 Professional Oil Painting Styles**
+  - Classical Renaissance (Leonardo/Raphael style)
+  - Baroque Drama (Caravaggio/Rembrandt style)
+  - Impressionist Light (Monet/Renoir style)
+  - Post-Impressionist Expression (Van Gogh style)
+  - Romantic Landscape (Turner style)
+  - Portrait Master (Sargent style)
+  - Modern Abstract
+  - Photorealistic Oil
 
-- **Frontend**: Next.js 14, React 18, TypeScript
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **AI Backend**: Automatic1111 (Stable Diffusion WebUI)
-- **Image Processing**: Canvas API, Base64 encoding
+- **🔐 Complete Authentication System**
+  - Email/Password registration
+  - Google OAuth integration
+  - Facebook OAuth integration
+  - Apple Sign In support
+  - Secure session management
 
-## Prerequisites
+- **🚀 Modern Tech Stack**
+  - Next.js 14 with App Router
+  - TypeScript for type safety
+  - Tailwind CSS for beautiful styling
+  - Prisma ORM for database
+  - NextAuth for authentication
+  - Firebase Hosting for deployment
 
-1. **Node.js**: Version 18 or higher
-2. **Automatic1111**: Running Stable Diffusion WebUI with API enabled
+- **📱 Responsive Design**
+  - Mobile-first approach
+  - Works on all devices
+  - Touch-friendly interface
 
-## Installation
+## 🖼️ Demo
 
-1. **Clone and navigate to the project:**
+[Live Demo](https://your-firebase-app.web.app) | [Beta Version](https://your-project--beta.web.app)
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- Automatic1111 WebUI (for local AI processing)
+- PostgreSQL or SQLite database
+
+### Installation
+
+1. **Clone the repository**
    ```bash
-   cd /Users/Kailor/Desktop/Projects/pixcart_v2/oil-painting-app
+   git clone https://github.com/YOUR_USERNAME/oil-painting-app.git
+   cd oil-painting-app
    ```
 
-2. **Install dependencies:**
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. **Start the development server:**
+3. **Set up environment variables**
+   ```bash
+   cp .env.local.example .env.local
+   # Edit .env.local with your configuration
+   ```
+
+4. **Set up database**
+   ```bash
+   npx prisma migrate dev
+   npx prisma generate
+   ```
+
+5. **Start Automatic1111** (for AI processing)
+   ```bash
+   cd stable-diffusion-webui
+   ./webui.sh --api --listen --cors-allow-origins="http://localhost:3000"
+   ```
+
+6. **Run development server**
    ```bash
    npm run dev
    ```
 
-4. **Open your browser:**
+7. **Open browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-## Automatic1111 Setup
-
-For the image conversion to work, you need to have Automatic1111 running with API access:
-
-1. **Install Automatic1111:**
-   Follow the official installation guide at [https://github.com/AUTOMATIC1111/stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
-
-2. **Start with API enabled:**
-   ```bash
-   ./webui.sh --api --listen --cors-allow-origins="http://localhost:3000"
-   ```
-
-3. **Verify API access:**
-   The API should be accessible at `http://localhost:7860`
-
-## Pages
-
-### Homepage (`/`)
-- Hero section with call-to-action
-- Features showcase
-- Step-by-step process explanation
-
-### Upload Page (`/upload`)
-- Drag & drop image upload
-- File validation and preview
-- Real-time conversion with progress
-- Before/after image comparison
-- Download functionality
-
-### Gallery Page (`/gallery`)
-- Grid/masonry view options
-- Like and share functionality
-- Full-screen image preview
-- Filter options (all/liked)
-
-## API Endpoints
-
-### POST `/api/convert`
-Converts an uploaded image to oil painting style.
-
-**Request:**
-- Form data with `image` file
-
-**Response:**
-- Success: Returns converted image as JPEG
-- Error: Returns JSON error message
-
-**Features:**
-- File validation (type, size)
-- A1111 integration with img2img
-- Fallback error handling
-- Progress tracking
-
-## Customization
-
-### Oil Painting Style
-Edit the prompt in `/app/api/convert/route.ts`:
-
-```typescript
-const OIL_PAINTING_PROMPT = `masterpiece oil painting, thick brush strokes, impasto technique, textured canvas, rich colors, classical painting style...`
-```
-
-### Color Scheme
-The app uses an amber-orange gradient theme. Modify colors in:
-- `tailwind.config.js` for global colors
-- Component files for specific styling
-
-### A1111 Configuration
-Update the API settings in `/app/api/convert/route.ts`:
-
-```typescript
-const A1111_BASE_URL = 'http://localhost:7860'
-const img2imgPayload = {
-  steps: 20,
-  cfg_scale: 7.5,
-  denoising_strength: 0.75,
-  // ... other parameters
-}
-```
-
-## Deployment
-
-### Build for production:
-```bash
-npm run build
-npm start
-```
+## 🔧 Configuration
 
 ### Environment Variables
-Create a `.env.local` file for production:
+
+Create a `.env.local` file with:
 
 ```env
-A1111_BASE_URL=http://your-a1111-server:7860
-NEXT_PUBLIC_APP_URL=https://your-domain.com
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-secret-key
+
+# OAuth Providers
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+FACEBOOK_CLIENT_ID=your-facebook-app-id
+FACEBOOK_CLIENT_SECRET=your-facebook-app-secret
+APPLE_ID=your-apple-service-id
+APPLE_SECRET=your-apple-private-key
+
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/oilpainting"
+
+# A1111 API
+A1111_BASE_URL=http://localhost:7860
 ```
 
-## Development
+### OAuth Setup
 
-### Project Structure
-```
-app/
-├── components/          # Shared React components
-│   ├── Navigation.tsx   # Main navigation bar
-│   ├── Footer.tsx       # Site footer
-│   └── LoadingSpinner.tsx # Loading component
-├── upload/              # Upload page
-├── gallery/             # Gallery page  
-├── api/                 # API routes
-│   └── convert/         # Image conversion endpoint
-├── globals.css          # Global styles
-└── layout.tsx           # Root layout
+See [AUTHENTICATION_SETUP.md](./AUTHENTICATION_SETUP.md) for detailed OAuth configuration instructions.
+
+## 📦 Project Structure
 
 ```
+oil-painting-app/
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes
+│   ├── auth/              # Authentication pages
+│   ├── components/        # React components
+│   ├── lib/               # Utility functions
+│   ├── upload/            # Upload page
+│   └── gallery/           # Gallery page
+├── prisma/                # Database schema
+├── public/                # Static assets
+├── .github/workflows/     # CI/CD pipelines
+└── tests/                 # Test files
+```
 
-### Key Components
+## 🚀 Deployment
 
-- **Navigation**: Responsive navbar with active states
-- **Upload**: Drag & drop with preview and conversion
-- **Gallery**: Grid layout with modal view
-- **API**: A1111 integration with error handling
+### Automatic Deployment
 
-## Troubleshooting
+The project includes GitHub Actions workflows for automatic deployment:
 
-### A1111 Connection Issues
-- Ensure A1111 is running with `--api --listen` flags
-- Check CORS settings if accessing from different domains
-- Verify the API URL in the code matches your setup
+- **Push to `beta` branch** → Deploys to beta environment
+- **Push to `main` branch** → Deploys to production
+- **Pull Requests** → Creates preview deployments
 
-### Image Upload Issues
-- Check file size limits (max 10MB)
-- Ensure supported formats: JPG, PNG, GIF, WebP
-- Verify browser permissions for file access
+### Manual Deployment
 
-### Performance Issues
-- Images are processed on A1111 server
-- Larger images take more time to process
-- Consider resizing images for faster processing
+1. **Build the application**
+   ```bash
+   npm run build
+   ```
 
-## License
+2. **Deploy to Firebase**
+   ```bash
+   npm run deploy:production
+   ```
 
-This project is for educational and personal use. Please respect the licenses of all dependencies and AI models used.
+See [DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md) for complete deployment instructions.
 
-## Contributing
+## 🧪 Testing
+
+Run tests with:
+
+```bash
+npm test                 # Run all tests
+npm run test:unit       # Unit tests
+npm run test:e2e        # E2E tests with Playwright
+npm run lint            # Linting
+npm run type-check      # TypeScript checking
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [Contributing Guidelines](./CONTRIBUTING.md) first.
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## Support
+## 📝 License
 
-For issues and questions:
-1. Check the troubleshooting section
-2. Review A1111 documentation
-3. Open an issue on the repository
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Automatic1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui) for Stable Diffusion WebUI
+- [Next.js](https://nextjs.org/) for the amazing React framework
+- [Tailwind CSS](https://tailwindcss.com/) for styling
+- [NextAuth.js](https://next-auth.js.org/) for authentication
+- [Firebase](https://firebase.google.com/) for hosting
+
+## 📞 Support
+
+For support, email support@yourdomain.com or open an issue on GitHub.
+
+## 🗺️ Roadmap
+
+- [ ] Add more oil painting styles
+- [ ] Implement batch processing
+- [ ] Add image editing tools
+- [ ] Create mobile app
+- [ ] Add social sharing features
+- [ ] Implement marketplace for prints
+- [ ] Add AI style transfer training
+
+## 📊 Status
+
+- ✅ Core functionality complete
+- ✅ Authentication system
+- ✅ 8 painting styles
+- ✅ CI/CD pipeline
+- 🚧 OAuth provider setup needed
+- 🚧 Production database configuration needed
+
+---
+
+Made with ❤️ using Next.js and AI
